@@ -6,7 +6,7 @@
     <meta content='width=device-width; height=device-height; initial-scale=1.0; maximum-scale=1.0; user-scalable=0;' name='viewport' />
     <meta name="viewport" content="width=device-width" />
     <meta name="license" content="
-        Copyright 2013 Abram Hindle
+        Copyright 2013 Abram Hindle, Klyde Pausang 2023
         
         Licensed under the Apache License, Version 2.0 (the "License");
         you may not use this file except in compliance with the License.
@@ -22,17 +22,74 @@
     "/>
     <script src="json2.js"></script>
   </head> 
-  <body bgcolor="black" height="100%" width="100%"> 
+  <body style="background-color: #cecacd;margin: 0; "> 
+      <div class="fake-navbar" style="background-color: #d7827e; margin: 0; padding: 0;">
+        <div class="color-choice" style="text-align: center;">
+            <span>
+                <button id="red" style="background-color: red;">Red</button>
+                <button id="green" style="background-color: green;"">Green</button>
+                <button id="blue" style="background-color: blue;">Blue</button>
+                <button id="purple" style="background-color: purple;">Purple</button>
+                <button id="pink" style="background-color: pink;">Pink</button>
+            </span>
+            <span>
+                <button id="clear">Clear</button>
+            </span>
+        </div>
+        
+          
+
+      </div>
     <canvas id="c" width="100%" height="100%" style="-webkit-tap-highlight-color: transparent;"></canvas> 
     <script>
 var canvas = document.getElementById('c');
 var host = window.location.host;
 var context = canvas.getContext("2d");
-var W = canvas.width  = window.innerWidth-6;
-var H = canvas.height = window.innerHeight-50;
 
 
-function sendJSONXMLHTTPRequest(url, objects, callback) {
+var W = canvas.width  = window.innerWidth;
+var H = canvas.height = window.innerHeight;
+context.fillStyle = "#9893a5";
+context.fillRect(0, 0, W, H);
+
+var clearButton = document.getElementById('clear')
+clearButton.onclick = function() {
+    sendJSONXMLHTTPRequest("POST", '/clear', null, function(newData){
+        newData = {}
+    })
+}
+
+var global_color = "pink"
+
+var redButton = document.getElementById('red')
+redButton.onclick = function() {
+    global_color = "red"
+}
+var greenButton = document.getElementById('green')
+greenButton.onclick = function() {
+    global_color = "green"
+
+}
+var blueButton = document.getElementById('blue')
+blueButton.onclick = function() {
+    global_color = "blue"
+
+}
+var purpButton = document.getElementById('purple')
+purpButton.onclick = function() {
+    global_color = "purple"
+
+}
+var pinkButton = document.getElementById('pink')
+pinkButton.onclick = function() {
+    global_color = "pink"
+
+}
+
+
+var global_data
+
+function sendJSONXMLHTTPRequest(method,url, objects, callback) {
     var xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function () {
         if (xhr.readyState==4) {
@@ -40,6 +97,8 @@ function sendJSONXMLHTTPRequest(url, objects, callback) {
                 if (xhr.status==200) {
                     //XXX: parse some JSON from the request!
                     //XXX: Pass the data to the callback!
+                    var data = JSON.parse(xhr.responseText);
+                    callback(data);
                 }
             } 
             catch(e) {
@@ -50,6 +109,22 @@ function sendJSONXMLHTTPRequest(url, objects, callback) {
     //XXX: POST to a URL
     //XXX: set the mimetype and the accept headers!
     // Remember to use application/json !
+    
+    if(method === "POST"){
+        xhr.open(method, url,true);    
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('Accept', 'application/json');
+        xhr.send(JSON.stringify(objects))
+    }
+    else if(method === "GET"){
+        xhr.open(method, url,true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('Accept', 'application/json');
+        xhr.send(JSON.stringify(objects))
+    }
+
+
+    
 }
 
 
@@ -66,7 +141,7 @@ function drawCircle(context,entity) {
         fillStyle = entity["colour"];
         strokeStyle = fillStyle;
         arc(x, y, (entity["radius"])?entity["radius"]:50, 0, 2.0 * Math.PI, false);  
-        stroke();                                
+        fill();                                
     }
 }
 
@@ -83,7 +158,7 @@ function prepEntity(entity) {
 function clearFrame() {
     with(context) {
 	moveTo(0,0);
-	fillStyle = "#000";
+	fillStyle = "#9893a5";
 	fillRect(0,0,W,H);
     }
 
@@ -138,13 +213,17 @@ function addEntity(entity, data) {
     world[entity] = data;
     drawNextFrame(); // (but should we?)
     //XXX: Send a XHTML Request that updates the entity you just  modified!
+    
+    sendJSONXMLHTTPRequest('POST','/entity/'+entity, data, function(newData){
+        newData = {}
+    });
 
 }
 
 var counter = 0;
 function addEntityWithoutName(data) {
     //var name = "X"+Math.floor((Math.random()*100)+1);
-    var name = "X"+(counter++)%100;
+    var name = "X"+(counter++)%1000;//Draw a longer line
     addEntity(name,data);
 }
 
@@ -246,24 +325,30 @@ mouse = (function() {
 
 // Add the application specific mouse listeners!
 //XXX: TODO Make these prettier!
-mouse.mousedowners.push(function(x,y,clicked,e) {
+/* mouse.mousedowners.push(function(x,y,clicked,e) {
     addEntityWithoutName({'x':x,'y':y,'colour':'blue'});
 });
 
 mouse.mouseuppers.push(function(x,y,clicked,e) {
     addEntityWithoutName({'x':x,'y':y,'colour':'red'});
-});
+}); */
 
 mouse.mousedraggers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'green',
+    addEntityWithoutName({'x':x,'y':y,'colour':global_color,
                           'radius':10});
 });
-
 
 function update() {
     //XXX: TODO Get the world from the webservice using a XMLHTTPRequest
     drawFrame();
+    sendJSONXMLHTTPRequest('GET','/world', null, function(newData){
+        world = newData
+        drawNextFrame()
+    });
+    
+    
 }
+
 
 // 30 frames per second
 setInterval( update, 1000/30.0);
